@@ -1,0 +1,391 @@
+openapi: 3.0.0
+info:
+  title: API de Locadora de Veículos
+  version: 1.0.0
+  description: API RESTful para gerenciar uma locadora de veículos.
+servers:
+  - url: http://localhost:3000
+    description: Servidor de Desenvolvimento
+tags:
+  - name: Usuários
+    description: Operações relacionadas a usuários
+  - name: Automóveis
+    description: Operações relacionadas a automóveis
+  - name: Aluguéis
+    description: Operações relacionadas a aluguéis
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "joao.silva@example.com"
+        cpf:
+          type: string
+          example: "123.456.789-00"
+      required:
+        - name
+        - email
+        - cpf
+    NewUser:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "joao.silva@example.com"
+        cpf:
+          type: string
+          example: "123.456.789-00"
+        password:
+          type: string
+          format: password
+          example: "senhaSegura123"
+      required:
+        - name
+        - email
+        - cpf
+        - password
+    Login:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: "joao.silva@example.com"
+        password:
+          type: string
+          format: password
+          example: "senhaSegura123"
+      required:
+        - email
+        - password
+    Car:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "f1e2d3c4-b5a6-9876-5432-10fedcba9876"
+        brand:
+          type: string
+          example: "Toyota"
+        model:
+          type: string
+          example: "Corolla"
+        year:
+          type: integer
+          example: 2020
+        plate:
+          type: string
+          example: "ABC-1234"
+        dailyRate:
+          type: number
+          format: float
+          example: 150.00
+        isAvailable:
+          type: boolean
+          example: true
+      required:
+        - brand
+        - model
+        - year
+        - plate
+        - dailyRate
+    NewCar:
+      type: object
+      properties:
+        brand:
+          type: string
+          example: "Toyota"
+        model:
+          type: string
+          example: "Corolla"
+        year:
+          type: integer
+          example: 2020
+        plate:
+          type: string
+          example: "ABC-1234"
+        dailyRate:
+          type: number
+          format: float
+          example: 150.00
+      required:
+        - brand
+        - model
+        - year
+        - plate
+        - dailyRate
+    Rental:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "g1h2i3j4-k5l6-7890-1234-567890mnopqr"
+        userId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+        carId:
+          type: string
+          format: uuid
+          example: "f1e2d3c4-b5a6-9876-5432-10fedcba9876"
+        startDate:
+          type: string
+          format: date
+          example: "2023-10-26"
+        expectedEndDate:
+          type: string
+          format: date
+          example: "2023-10-30"
+        actualEndDate:
+          type: string
+          format: date
+          nullable: true
+          example: null
+      required:
+        - userId
+        - carId
+        - startDate
+        - expectedEndDate
+    NewRental:
+      type: object
+      properties:
+        carId:
+          type: string
+          format: uuid
+          example: "f1e2d3c4-b5a6-9876-5432-10fedcba9876"
+        startDate:
+          type: string
+          format: date
+          example: "2023-10-26"
+        expectedEndDate:
+          type: string
+          format: date
+          example: "2023-10-30"
+      required:
+        - carId
+        - startDate
+        - expectedEndDate
+paths:
+  /api/users/register:
+    post:
+      tags:
+        - Usuários
+      summary: Registra um novo usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewUser'
+      responses:
+        '201':
+          description: Usuário registrado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Erro na requisição
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+  /api/users/login:
+    post:
+      tags:
+        - Usuários
+      summary: Realiza o login de um usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+      responses:
+        '200':
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  token:
+                    type: string
+        '401':
+          description: Credenciais inválidas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+  /api/users:
+    get:
+      tags:
+        - Usuários
+      summary: Retorna todos os usuários registrados
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Não autorizado
+  /api/users/{id}:
+    get:
+      tags:
+        - Usuários
+      summary: Retorna um usuário pelo ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: string
+            format: uuid
+          required: true
+          description: ID do usuário
+      responses:
+        '200':
+          description: Dados do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Não autorizado
+        '404':
+          description: Usuário não encontrado
+  /api/cars:
+    post:
+      tags:
+        - Automóveis
+      summary: Registra um novo automóvel
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewCar'
+      responses:
+        '201':
+          description: Automóvel registrado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  car:
+                    $ref: '#/components/schemas/Car'
+        '400':
+          description: Erro na requisição
+        '401':
+          description: Não autorizado
+  /api/cars/available:
+    get:
+      tags:
+        - Automóveis
+      summary: Retorna todos os automóveis disponíveis para aluguel
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de automóveis disponíveis
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Car'
+        '401':
+          description: Não autorizado
+  /api/rentals:
+    post:
+      tags:
+        - Aluguéis
+      summary: Registra um novo aluguel de veículo
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewRental'
+      responses:
+        '201':
+          description: Aluguel registrado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  rental:
+                    $ref: '#/components/schemas/Rental'
+        '400':
+          description: Erro na requisição
+        '401':
+          description: Não autorizado
+  /api/rentals/user:
+    get:
+      tags:
+        - Aluguéis
+      summary: Retorna todos os aluguéis de um usuário autenticado
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de aluguéis do usuário
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Rental'
+        '401':
+          description: Não autorizado
