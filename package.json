@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/external/**/*.test.js' --timeout 10000",
+    "test": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/**/*.test.js' --timeout 10000",
     "test-external": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/external/**/*.test.js' --timeout 10000",
     "test-controller": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/controller/**/*.test.js' --timeout 10000",
-    "test-parallel": "concurrently \"node -r dotenv/config node_modules/mocha/bin/mocha test/external/user.test.js --timeout 10000\" \"node -r dotenv/config node_modules/mocha/bin/mocha test/external/car.test.js --timeout 10000\" \"node -r dotenv/config node_modules/mocha/bin/mocha test/external/rental.test.js --timeout 10000\"",
+    "test-graphql": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/graphql/**/*.test.js' --timeout 10000",
+    "test-parallel": "concurrently \"node -r dotenv/config node_modules/mocha/bin/mocha test/external/user.test.js --timeout 10000\" \"node -r dotenv/config node_modules/mocha/bin/mocha test/external/car.test.js --timeout 10000\" \"node -r dotenv/config node_modules/mocha/bin/mocha test/external/rental.test.js --timeout 10000\" \"node -r dotenv/config node_modules/mocha/bin/mocha test/graphql/graphql.test.js --timeout 10000\"",
     "start": "node src/server.js"
   },
   "keywords": [],
@@ -14,14 +15,17 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "apollo-server-express": "^3.13.0",
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "graphql": "^16.11.0",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^3.4.0",
     "yamljs": "^0.3.0"
   },
   "devDependencies": {
+    "apollo-server-testing": "^2.25.3",
     "chai": "^4.3.4",
     "concurrently": "^9.2.1",
     "jsonwebtoken": "^9.0.2",

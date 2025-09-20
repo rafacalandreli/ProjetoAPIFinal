@@ -50,6 +50,14 @@ class RentalService {
     // Garante que sempre retorna os aluguéis do usuário
     return rentalRepository.findRentalsByUser(userId);
   }
+
+  async getAllRentals() {
+    return rentalRepository.findAll();
+  }
+
+  async getRentalById(id) {
+    return rentalRepository.findById(id);
+  }
 }
 
 module.exports = new RentalService();

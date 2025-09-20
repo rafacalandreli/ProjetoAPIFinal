@@ -38,7 +38,7 @@ class UserService {
     }
 
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1h' });
-    return { token };
+    return { token, user };
   }
 
   async getAllUsers() {

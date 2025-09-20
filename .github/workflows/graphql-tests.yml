@@ -1,0 +1,38 @@
+name: GraphQL Tests
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-file:
+          - 'test/graphql/car.test.js'
+          - 'test/graphql/rental.test.js'
+          - 'test/graphql/user.test.js'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18' # Ou a versão do Node.js que você usa
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run GraphQL tests
+      run: npm run test-graphql
+      env:
+        NODE_ENV: test

@@ -27,6 +27,10 @@ class CarService {
   async getCarById(id) {
     return carRepository.findById(id);
   }
+
+  async findAllCars() {
+    return carRepository.findAll();
+  }
 }
 
 module.exports = new CarService();
