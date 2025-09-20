@@ -1,5 +1,6 @@
 const carRepository = require('../repository/carRepository');
 const uuidv4 = require('uuid').v4;
+const messages = require('../config/messages');
 
 class CarService {
   async registerCar(brand, model, year, plate, dailyRate) {

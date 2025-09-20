@@ -24,5 +24,11 @@ class UserRepository {
 }
 
 const userRepository = new UserRepository();
+
+function resetUsers() {
+  users = []; // Resetar a array de usuários
+}
+
 module.exports = userRepository;
 module.exports.users = users; // Exportar a array para fins de teste
+module.exports.resetUsers = resetUsers; // Exportar a função de reset

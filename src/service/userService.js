@@ -2,16 +2,17 @@ const userRepository = require('../repository/userRepository');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const uuidv4 = require('uuid').v4;
+const messages = require('../config/messages');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
 class UserService {
   async registerUser(name, email, cpf, password) {
     if (await userRepository.findByEmail(email)) {
-      throw new Error('Email já cadastrado.');
+      throw new Error(messages.EMAIL_ALREADY_REGISTERED);
     }
     if (await userRepository.findByCpf(cpf)) {
-      throw new Error('CPF já cadastrado.');
+      throw new Error(messages.CPF_ALREADY_REGISTERED);
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);

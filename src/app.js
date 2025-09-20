@@ -2,9 +2,7 @@ const express = require('express');
 const swaggerUi = require('swagger-ui-express');
 const YAML = require('yamljs');
 const path = require('path');
-const userRoutes = require('./routes/userRoutes');
-const carRoutes = require('./routes/carRoutes');
-const rentalRoutes = require('./routes/rentalRoutes');
+const routes = require('./routes');
 const userRepository = require('./repository/userRepository');
 const carRepository = require('./repository/carRepository');
 const rentalRepository = require('./repository/rentalRepository');
@@ -13,9 +11,9 @@ function createApplication() {
   const app = express();
 
   // Resetar repositórios para isolamento de testes
-  userRepository.users.length = 0;
-  carRepository.cars.length = 0;
-  rentalRepository.rentals.length = 0;
+  userRepository.resetUsers();
+  carRepository.cars.length = 0; // Manter para carRepository
+  rentalRepository.rentals.length = 0; // Manter para rentalRepository
 
   // Middleware para parsear JSON
   app.use(express.json());
@@ -27,9 +25,7 @@ function createApplication() {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
   // Rotas da API
-  app.use('/users', userRoutes);
-  app.use('/cars', carRoutes);
-  app.use('/rentals', rentalRoutes);
+  app.use('/api', routes);
 
   return app;
 }

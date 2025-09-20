@@ -1,40 +1,22 @@
 const request = require('supertest');
 const createApplication = require('../../src/app');
-let app;
 const { expect } = require('chai');
 const messages = require('../../src/config/messages');
-const userRepository = require('../../src/repository/userRepository');
-const carRepository = require('../../src/repository/carRepository');
-const rentalRepository = require('../../src/repository/rentalRepository');
+const { createTestUserSession } = require('../utils/authHelper');
 
-describe('API Automóveis', () => {
+describe('Testes de API - Automóveis', () => {
   let authToken = '';
   let userId = '';
+  let app;
 
   beforeEach(async () => {
     app = createApplication(); // Cria uma nova instância da aplicação para cada teste
-    // Registrar um usuário para ser usado em todos os testes autenticados
-    const userRes = await request(app)
-      .post('/api/users/register')
-      .send({
-        name: 'Global Test User',
-        email: 'global@example.com',
-        cpf: '000.000.000-00',
-        password: 'password123',
-      });
-    userId = userRes.body.user.id;
-
-    // Logar o usuário e obter o token
-    const loginRes = await request(app)
-      .post('/api/users/login')
-      .send({
-        email: 'global@example.com',
-        password: 'password123',
-      });
-    authToken = loginRes.body.token;
+    const auth = await createTestUserSession(app);
+    authToken = auth.authToken;
+    userId = auth.userId;
   });
 
-  it('Deve registrar um novo automóvel (autenticado)', async () => {
+  it('TC 001 - Deve registrar um novo automóvel (autenticado)', async () => {
     const res = await request(app)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
@@ -42,7 +24,7 @@ describe('API Automóveis', () => {
         brand: 'Ford',
         model: 'Ka',
         year: 2021,
-        plate: 'XYZ-5678',
+        plate: `XYZ-${Date.now().toString().slice(-4)}`,
         dailyRate: 80.00,
       });
     expect(res.statusCode).to.equal(201);
@@ -50,7 +32,8 @@ describe('API Automóveis', () => {
     expect(res.body.car).to.have.property('id');
   });
 
-  it('Não deve registrar automóvel com placa duplicada (autenticado)', async () => {
+  it('TC 002 - Não deve registrar automóvel com placa duplicada (autenticado)', async () => {
+    const uniquePlate = `DUP-${Date.now().toString().slice(-4)}`;
     await request(app)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
@@ -58,7 +41,7 @@ describe('API Automóveis', () => {
         brand: 'Ford',
         model: 'Ka',
         year: 2021,
-        plate: 'ABC-1234', // Placa única para este teste
+        plate: uniquePlate,
         dailyRate: 80.00,
       });
 
@@ -69,15 +52,14 @@ describe('API Automóveis', () => {
         brand: 'Fiat',
         model: 'Uno',
         year: 2020,
-        plate: 'ABC-1234',
+        plate: uniquePlate,
         dailyRate: 70.00,
       });
     expect(res.statusCode).to.equal(400);
     expect(res.body).to.have.property('error', messages.PLATE_ALREADY_REGISTERED);
   });
 
-  it('Deve retornar automóveis disponíveis (autenticado)', async () => {
-    // Registrar um carro para este teste específico
+  it('TC 003 - Deve retornar automóveis disponíveis (autenticado)', async () => {
     const carRes = await request(app)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
@@ -85,7 +67,7 @@ describe('API Automóveis', () => {
         brand: 'Toyota',
         model: 'Corolla',
         year: 2023,
-        plate: 'COR-1234',
+        plate: `COR-${Date.now().toString().slice(-4)}`,
         dailyRate: 150.00,
       });
     const testCarId = carRes.body.car.id;

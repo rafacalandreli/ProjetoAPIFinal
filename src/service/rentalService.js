@@ -2,6 +2,7 @@ const rentalRepository = require('../repository/rentalRepository');
 const userRepository = require('../repository/userRepository');
 const carRepository = require('../repository/carRepository');
 const uuidv4 = require('uuid').v4;
+const messages = require('../config/messages');
 
 class RentalService {
   async createRental(userId, carId, startDate, expectedEndDate) {
