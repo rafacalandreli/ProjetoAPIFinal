@@ -54,3 +54,32 @@ A API estará disponível em `http://localhost:3000` (ou na porta definida pela 
 ### Documentação da API (Swagger)
 
 A documentação interativa da API estará disponível em `http://localhost:3000/api-docs` após a inicialização do servidor.
+
+## Testes
+
+Para executar os testes, utilize os seguintes comandos:
+
+- **Executar todos os testes:**
+  ```bash
+  npm test
+  ```
+
+- **Executar testes de integração (external):**
+  ```bash
+  npm run test-external
+  ```
+
+- **Executar testes de controller:**
+  ```bash
+  npm run test-controller
+  ```
+
+- **Executar testes GraphQL:**
+  ```bash
+  npm run test-graphql
+  ```
+
+- **Executar testes em paralelo (external e GraphQL):**
+  ```bash
+  npm run test-parallel
+  ```

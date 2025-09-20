@@ -16,9 +16,44 @@ function generateRandomTestUserData() {
   return {
     name: `Test User ${uniqueId}`,
     email: `testuser-${uniqueId}@${EMAIL_DOMAIN}`,
-    cpf: `000.000.000-${uniqueId.toString().slice(-2)}`,
+    cpf: generateValidCpf(),
     password: DEFAULT_PASSWORD,
   };
+}
+
+/**
+ * Gera um CPF válido aleatoriamente.
+ * @returns {string} Um CPF válido no formato "XXX.XXX.XXX-XX".
+ */
+function generateValidCpf() {
+  const generateRandomDigits = (count) => {
+    let digits = '';
+    for (let i = 0; i < count; i++) {
+      digits += Math.floor(Math.random() * 10);
+    }
+    return digits;
+  };
+
+  const calculateVerifierDigit = (cpfBase) => {
+    let sum = 0;
+    let multiplier = cpfBase.length + 1;
+    for (let i = 0; i < cpfBase.length; i++) {
+      sum += parseInt(cpfBase[i]) * multiplier;
+      multiplier--;
+    }
+    const remainder = sum % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+
+  let cpfNineDigits = generateRandomDigits(9);
+
+  let firstVerifier = calculateVerifierDigit(cpfNineDigits);
+  let cpfTenDigits = cpfNineDigits + firstVerifier;
+
+  let secondVerifier = calculateVerifierDigit(cpfTenDigits);
+  let cpfElevenDigits = cpfTenDigits + secondVerifier;
+
+  return cpfElevenDigits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 }
 
 /**
@@ -95,31 +130,29 @@ async function loginUserTest(server, email, password) {
 /**
  * Cria um usuário de teste e retorna uma sessão autenticada.
  * @param {object} [options] - Dados opcionais para sobrescrever (name, email, cpf, password).
- * @returns {Promise<{ authToken: string, userId: string, userEmail: string, userName: string, userCpf: string, server: object }>}
+ * @returns {Promise<{ authToken: string, userId: string, userEmail: string, userName: string, userCpf: string }>}
  */
-async function createTestUserSession(options = {}) {
-  const { app } = await createApplication();
-  const server = await startHttpServer(app, 0); // Inicia em uma porta aleatória
-
+async function createTestUserSession(baseUrl, options = {}) { // Adicionar baseUrl como parâmetro
   const userData = buildTestUserData(options);
 
-  const userRes = await registerUserTest(server, userData.name, userData.email, userData.cpf, userData.password);
+  const userRes = await request(baseUrl) // Usar baseUrl
+    .post('/api/users/register')
+    .send({ name: userData.name, email: userData.email, cpf: userData.cpf, password: userData.password });
   
   if (userRes.statusCode !== 201) {
-    await server.close(); // Fechar o servidor em caso de falha
     throw new RegistrationError(`Failed to register user: ${userRes.body.error || userRes.text}`, userRes.statusCode, userRes.body);
   }
 
-  const loginRes = await loginUserTest(server, userData.email, userData.password);
+  const loginRes = await request(baseUrl) // Usar baseUrl
+    .post('/api/users/login')
+    .send({ email: userData.email, password: userData.password });
 
   if (loginRes.statusCode !== 200) {
-    await server.close(); // Fechar o servidor em caso de falha
     throw new LoginError(`Failed to login user: ${loginRes.body.error || loginRes.text}`, loginRes.statusCode, loginRes.body);
   }
 
   const decodedToken = jwt.decode(loginRes.body.token);
   if (!decodedToken || typeof decodedToken.id === 'undefined') {
-    await server.close(); // Fechar o servidor em caso de falha
     throw new TokenError('User ID not found or invalid in token after login.', null, null);
   }
   const userId = decodedToken.id;
@@ -130,17 +163,16 @@ async function createTestUserSession(options = {}) {
     userEmail: userData.email,
     userName: userData.name,
     userCpf: userData.cpf,
-    server: server, // Retorna a instância do servidor para que possa ser fechada
   };
 }
 
 /**
  * Registra um novo usuário de teste.
- * @param {object} server - Instância do servidor HTTP.
+ * @param {string} baseUrl - A URL base da API.
  * @param {object} [options] - Dados opcionais para sobrescrever (name, email, cpf, password).
  * @returns {Promise<object>} - Resposta da requisição de registro.
  */
-async function registerNewUserTest(server, options = {}) {
+async function registerNewUserTest(baseUrl, options = {}) { // Adicionar baseUrl como parâmetro
   const userData = buildTestUserData({
     name: options.name || 'New Test User',
     email: options.email,
@@ -148,14 +180,16 @@ async function registerNewUserTest(server, options = {}) {
     password: options.password,
   });
 
-  const res = await registerUserTest(server, userData.name, userData.email, userData.cpf, userData.password);
+  const res = await request(baseUrl) // Usar baseUrl
+    .post('/api/users/register')
+    .send({ name: userData.name, email: userData.email, cpf: userData.cpf, password: userData.password });
   return res;
 }
 
 module.exports = {
   createTestUserSession,
-  registerUserTest,
-  loginUserTest,
+  registerUserTest: (baseUrl, name, email, cpf, password) => request(baseUrl).post('/api/users/register').send({ name, email, cpf, password }), // Adaptar para usar baseUrl
+  loginUserTest: (baseUrl, email, password) => request(baseUrl).post('/api/users/login').send({ email, password }), // Adaptar para usar baseUrl
   registerNewUserTest,
   RegistrationError,
   LoginError,
