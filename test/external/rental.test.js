@@ -1,31 +1,23 @@
 const { expect } = require('chai');
 const request = require('supertest');
-const { createApplication, startHttpServer } = require('../../src/app');
 const messages = require('../../src/config/messages');
 const { createTestUserSession } = require('../utils/authHelper');
+const userRepository = require('../../src/repository/userRepository'); // Importar userRepository
 
 describe('Testes de API - Aluguéis de Automoveis', () => {
   let authToken = '';
   let userId = '';
-  let app;
-  let server;
-  let apolloServer;
+  const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
 
   beforeEach(async () => {
-    ({ app, apolloServer } = await createApplication());
-    server = await startHttpServer(app, 0); // Inicia em uma porta aleatória
-    const auth = await createTestUserSession();
+    userRepository.resetUsers(); // Resetar usuários antes de cada teste
+    const auth = await createTestUserSession(baseUrl);
     authToken = auth.authToken;
     userId = auth.userId;
   });
 
-  afterEach(async () => {
-    await apolloServer.stop();
-    await server.close();
-  });
-
   it('TC 004 - Deve registrar um novo aluguel (autenticado)', async () => {
-    const carRes = await request(server)
+    const carRes = await request(baseUrl)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
@@ -37,13 +29,14 @@ describe('Testes de API - Aluguéis de Automoveis', () => {
       });
     const carId = carRes.body.car.id;
 
-    const res = await request(server)
+    const res = await request(baseUrl)
       .post('/api/rentals')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         carId: carId,
+        userId: userId, // Adicionar userId
         startDate: new Date().toISOString(),
-        expectedEndDate: new Date(Date.now() + (5 * 24 * 60 * 60 * 1000)).toISOString(), // 5 dias no futuro
+        endDate: new Date(Date.now() + (5 * 24 * 60 * 60 * 1000)).toISOString(), // 5 dias no futuro
       });
     expect(res.statusCode).to.equal(201);
     expect(res.body).to.have.property('message', messages.RENTAL_REGISTERED_SUCCESS);
@@ -51,7 +44,7 @@ describe('Testes de API - Aluguéis de Automoveis', () => {
   });
 
   it('TC 005 - Não deve alugar carro já alugado (autenticado)', async () => {
-    const newCarRes = await request(server)
+    const newCarRes = await request(baseUrl)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
@@ -63,29 +56,31 @@ describe('Testes de API - Aluguéis de Automoveis', () => {
       });
     const newCarId = newCarRes.body.car.id;
 
-    await request(server)
+    await request(baseUrl)
       .post('/api/rentals')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         carId: newCarId,
+        userId: userId, // Adicionar userId
         startDate: new Date().toISOString(),
-        expectedEndDate: new Date(Date.now() + (5 * 24 * 60 * 60 * 1000)).toISOString(), // 5 dias no futuro
+        endDate: new Date(Date.now() + (5 * 24 * 60 * 60 * 1000)).toISOString(), // 5 dias no futuro
       });
 
-    const res = await request(server)
+    const res = await request(baseUrl)
       .post('/api/rentals')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         carId: newCarId,
+        userId: userId, // Adicionar userId
         startDate: new Date(Date.now() + (1 * 24 * 60 * 60 * 1000)).toISOString(),
-        expectedEndDate: new Date(Date.now() + (6 * 24 * 60 * 60 * 1000)).toISOString(),
+        endDate: new Date(Date.now() + (6 * 24 * 60 * 60 * 1000)).toISOString(),
       });
     expect(res.statusCode).to.equal(400);
     expect(res.body).to.have.property('error', messages.CAR_ALREADY_RENTED);
   });
 
   it('TC 006 - Deve retornar aluguéis do usuário autenticado', async () => {
-    const carRes = await request(server)
+    const carRes = await request(baseUrl)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
@@ -97,17 +92,18 @@ describe('Testes de API - Aluguéis de Automoveis', () => {
       });
     const testCarId = carRes.body.car.id;
 
-    await request(server)
+    await request(baseUrl)
       .post('/api/rentals')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         carId: testCarId,
+        userId: userId, // Adicionar userId
         startDate: new Date().toISOString(),
-        expectedEndDate: new Date(Date.now() + (5 * 24 * 60 * 60 * 1000)).toISOString(),
+        endDate: new Date(Date.now() + (5 * 24 * 60 * 60 * 1000)).toISOString(),
       });
 
-    const res = await request(server)
-      .get('/api/rentals/user')
+    const res = await request(baseUrl)
+      .get('/api/rentals/user') // Remover userId da rota
       .set('Authorization', `Bearer ${authToken}`);
     expect(res.statusCode).to.equal(200);
     expect(res.body).to.be.an('array');

@@ -1,9 +1,10 @@
 require('dotenv').config();
-const createApplication = require('./app');
+const appModule = require('./app');
+const createApplication = appModule.createApplication;
 const PORT = process.env.PORT || 3000;
 
 async function startServer() {
-  const app = await createApplication();
+  const { app } = await createApplication();
 
   app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);

@@ -7,7 +7,7 @@
     "test-external": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/external/**/*.test.js' --timeout 10000 --exit",
     "test-controller": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/controller/**/*.test.js' --timeout 10000",
     "test-graphql": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/graphql/**/*.test.js' --timeout 10000",
-    "test-parallel": "concurrently \"node -r dotenv/config node_modules/mocha/bin/mocha test/external/user.test.js --timeout 10000\" \"node -r dotenv/config node_modules/mocha/bin/mocha test/external/car.test.js --timeout 10000\" \"node -r dotenv/config node_modules/mocha/bin/mocha test/external/rental.test.js --timeout 10000\" \"node -r dotenv/config node_modules/mocha/bin/mocha test/graphql/graphql.test.js --timeout 10000\"",
+    "test-parallel": "concurrently --kill-others \"npm run start\" \"sleep 5 && node -r dotenv/config node_modules/mocha/bin/mocha test/external/user.test.js --timeout 10000\" \"sleep 5 && node -r dotenv/config node_modules/mocha/bin/mocha test/external/car.test.js --timeout 10000\" \"sleep 5 && node -r dotenv/config node_modules/mocha/bin/mocha test/external/rental.test.js --timeout 10000\" \"sleep 5 && node -r dotenv/config node_modules/mocha/bin/mocha test/graphql/graphql.test.js --timeout 10000\"",
     "start": "node src/server.js"
   },
   "keywords": [],
