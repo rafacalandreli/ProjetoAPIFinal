@@ -1,6 +1,6 @@
-const request = require('supertest');
-const createApplication = require('../../src/app');
 const { expect } = require('chai');
+const request = require('supertest');
+const { createApplication, startHttpServer } = require('../../src/app');
 const messages = require('../../src/config/messages');
 const { createTestUserSession } = require('../utils/authHelper');
 
@@ -8,16 +8,24 @@ describe('Testes de API - Automóveis', () => {
   let authToken = '';
   let userId = '';
   let app;
+  let server;
+  let apolloServer;
 
   beforeEach(async () => {
-    app = createApplication(); // Cria uma nova instância da aplicação para cada teste
-    const auth = await createTestUserSession(app);
+    ({ app, apolloServer } = await createApplication());
+    server = await startHttpServer(app, 0); // Inicia em uma porta aleatória
+    const auth = await createTestUserSession();
     authToken = auth.authToken;
     userId = auth.userId;
   });
 
+  afterEach(async () => {
+    await apolloServer.stop();
+    await server.close();
+  });
+
   it('TC 001 - Deve registrar um novo automóvel (autenticado)', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
@@ -34,7 +42,7 @@ describe('Testes de API - Automóveis', () => {
 
   it('TC 002 - Não deve registrar automóvel com placa duplicada (autenticado)', async () => {
     const uniquePlate = `DUP-${Date.now().toString().slice(-4)}`;
-    await request(app)
+    await request(server)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
@@ -45,7 +53,7 @@ describe('Testes de API - Automóveis', () => {
         dailyRate: 80.00,
       });
 
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
@@ -60,7 +68,7 @@ describe('Testes de API - Automóveis', () => {
   });
 
   it('TC 003 - Deve retornar automóveis disponíveis (autenticado)', async () => {
-    const carRes = await request(app)
+    const carRes = await request(server)
       .post('/api/cars')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
@@ -72,7 +80,7 @@ describe('Testes de API - Automóveis', () => {
       });
     const testCarId = carRes.body.car.id;
 
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/cars/available')
       .set('Authorization', `Bearer ${authToken}`);
     expect(res.statusCode).to.equal(200);

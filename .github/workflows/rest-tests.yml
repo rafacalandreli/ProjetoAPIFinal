@@ -1,5 +1,3 @@
-name: CI/CD Pipeline
-
 on:
   push:
     branches:
@@ -24,6 +22,8 @@ jobs:
   build-external:
     runs-on: ubuntu-latest
     needs: build-controller
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
@@ -33,5 +33,5 @@ jobs:
       - run: npm start &
       - run: sleep 5
       - run: npm run test-external
-     
-      
+      - name: Kill Server
+        run: pkill -f node || true

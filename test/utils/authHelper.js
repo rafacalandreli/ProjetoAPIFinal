@@ -1,6 +1,6 @@
 require('dotenv').config();
 const request = require('supertest');
-const createApplication = require('../../src/app');
+const { createApplication, startHttpServer } = require('../../src/app');
 const jwt = require('jsonwebtoken'); // Import jsonwebtoken
 
 const DEFAULT_PASSWORD = 'password123';
@@ -64,15 +64,15 @@ class TokenError extends Error {
 
 /**
  * Realiza uma requisição de registro de usuário.
- * @param {object} app - Instância da aplicação Express.
+ * @param {object} server - Instância do servidor HTTP.
  * @param {string} name - Nome do usuário.
  * @param {string} email - Email do usuário.
  * @param {string} cpf - CPF do usuário.
  * @param {string} password - Senha do usuário.
  * @returns {Promise<object>} - Resposta da requisição de registro.
  */
-async function registerUserTest(app, name, email, cpf, password) {
-  const res = await request(app)
+async function registerUserTest(server, name, email, cpf, password) {
+  const res = await request(server)
     .post('/api/users/register')
     .send({ name, email, cpf, password });
   return res;
@@ -80,13 +80,13 @@ async function registerUserTest(app, name, email, cpf, password) {
 
 /**
  * Realiza uma requisição de login de usuário.
- * @param {object} app - Instância da aplicação Express.
+ * @param {object} server - Instância do servidor HTTP.
  * @param {string} email - Email do usuário.
  * @param {string} password - Senha do usuário.
  * @returns {Promise<object>} - Resposta da requisição de login.
  */
-async function loginUserTest(app, email, password) {
-  const res = await request(app)
+async function loginUserTest(server, email, password) {
+  const res = await request(server)
     .post('/api/users/login')
     .send({ email, password });
   return res;
@@ -94,27 +94,32 @@ async function loginUserTest(app, email, password) {
 
 /**
  * Cria um usuário de teste e retorna uma sessão autenticada.
- * @param {object} app - Instância da aplicação Express.
  * @param {object} [options] - Dados opcionais para sobrescrever (name, email, cpf, password).
- * @returns {Promise<{ authToken: string, userId: string, userEmail: string, userName: string, userCpf: string }>}
+ * @returns {Promise<{ authToken: string, userId: string, userEmail: string, userName: string, userCpf: string, server: object }>}
  */
-async function createTestUserSession(app, options = {}) {
+async function createTestUserSession(options = {}) {
+  const { app } = await createApplication();
+  const server = await startHttpServer(app, 0); // Inicia em uma porta aleatória
+
   const userData = buildTestUserData(options);
 
-  const userRes = await registerUserTest(app, userData.name, userData.email, userData.cpf, userData.password);
+  const userRes = await registerUserTest(server, userData.name, userData.email, userData.cpf, userData.password);
   
   if (userRes.statusCode !== 201) {
+    await server.close(); // Fechar o servidor em caso de falha
     throw new RegistrationError(`Failed to register user: ${userRes.body.error || userRes.text}`, userRes.statusCode, userRes.body);
   }
 
-  const loginRes = await loginUserTest(app, userData.email, userData.password);
+  const loginRes = await loginUserTest(server, userData.email, userData.password);
 
   if (loginRes.statusCode !== 200) {
+    await server.close(); // Fechar o servidor em caso de falha
     throw new LoginError(`Failed to login user: ${loginRes.body.error || loginRes.text}`, loginRes.statusCode, loginRes.body);
   }
 
   const decodedToken = jwt.decode(loginRes.body.token);
   if (!decodedToken || typeof decodedToken.id === 'undefined') {
+    await server.close(); // Fechar o servidor em caso de falha
     throw new TokenError('User ID not found or invalid in token after login.', null, null);
   }
   const userId = decodedToken.id;
@@ -125,16 +130,17 @@ async function createTestUserSession(app, options = {}) {
     userEmail: userData.email,
     userName: userData.name,
     userCpf: userData.cpf,
+    server: server, // Retorna a instância do servidor para que possa ser fechada
   };
 }
 
 /**
  * Registra um novo usuário de teste.
- * @param {object} app - Instância da aplicação Express.
+ * @param {object} server - Instância do servidor HTTP.
  * @param {object} [options] - Dados opcionais para sobrescrever (name, email, cpf, password).
  * @returns {Promise<object>} - Resposta da requisição de registro.
  */
-async function registerNewUserTest(app, options = {}) {
+async function registerNewUserTest(server, options = {}) {
   const userData = buildTestUserData({
     name: options.name || 'New Test User',
     email: options.email,
@@ -142,7 +148,7 @@ async function registerNewUserTest(app, options = {}) {
     password: options.password,
   });
 
-  const res = await registerUserTest(app, userData.name, userData.email, userData.cpf, userData.password);
+  const res = await registerUserTest(server, userData.name, userData.email, userData.cpf, userData.password);
   return res;
 }
 
