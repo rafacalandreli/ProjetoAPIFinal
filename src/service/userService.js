@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 const uuidv4 = require('uuid').v4;
 const messages = require('../config/messages');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 class UserService {
   async registerUser(name, email, cpf, password) {

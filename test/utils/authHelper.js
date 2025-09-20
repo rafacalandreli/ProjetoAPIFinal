@@ -1,3 +1,4 @@
+require('dotenv').config();
 const request = require('supertest');
 const createApplication = require('../../src/app');
 const jwt = require('jsonwebtoken'); // Import jsonwebtoken
