@@ -1,6 +1,6 @@
-const request = require('supertest');
-const createApplication = require('../../src/app');
 const { expect } = require('chai');
+const request = require('supertest');
+const { createApplication, startHttpServer } = require('../../src/app');
 const messages = require('../../src/config/messages');
 const { createTestUserSession, registerNewUserTest, buildTestUserData } = require('../utils/authHelper');
 
@@ -8,25 +8,33 @@ describe('Testes de API - Usuários Scenarios', () => {
   let authToken = '';
   let userId = '';
   let app;
+  let server;
+  let apolloServer;
   let auth;
 
   beforeEach(async () => {
-    app = createApplication(); 
-    auth = await createTestUserSession(app);
+    ({ app, apolloServer } = await createApplication());
+    server = await startHttpServer(app, 0); // Inicia em uma porta aleatória
+    auth = await createTestUserSession();
     authToken = auth.authToken;
     userId = auth.userId;
   });
 
+  afterEach(async () => {
+    await apolloServer.stop();
+    await server.close();
+  });
+
   it('TC 007 - Deve registrar um novo usuário', async () => {
     const userData = buildTestUserData({ name: 'New User' });
-    const res = await registerNewUserTest(app, userData);
+    const res = await registerNewUserTest(server, userData);
     expect(res.statusCode).to.equal(201);
     expect(res.body).to.have.property('message', messages.USER_REGISTERED_SUCCESS);
     expect(res.body.user).to.have.property('id');
   });
 
   it('TC 008 - Não deve registrar usuário com email duplicado', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/users/register')
       .send({
         name: 'Outro User Duplicado',
@@ -39,7 +47,7 @@ describe('Testes de API - Usuários Scenarios', () => {
   });
 
   it('TC 009 - Deve logar um usuário e retornar um token', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .post('/api/users/login')
       .send({
         email: auth.userEmail,
@@ -50,7 +58,7 @@ describe('Testes de API - Usuários Scenarios', () => {
   });
 
   it('TC 010 - Deve retornar todos os usuários (autenticado)', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .get('/api/users')
       .set('Authorization', `Bearer ${authToken}`);
     expect(res.statusCode).to.equal(200);
@@ -59,7 +67,7 @@ describe('Testes de API - Usuários Scenarios', () => {
   });
 
   it('TC 011 - Deve retornar um usuário pelo ID (autenticado)', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .get(`/api/users/${userId}`)
       .set('Authorization', `Bearer ${authToken}`);
     expect(res.statusCode).to.equal(200);

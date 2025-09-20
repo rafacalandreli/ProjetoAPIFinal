@@ -43,7 +43,15 @@ async function createApplication() {
   // Rotas da API
   app.use('/api', routes);
 
-  return app;
+  return { app, apolloServer: server };
 }
 
-module.exports = createApplication;
+async function startHttpServer(app, port = 0) {
+  return new Promise((resolve) => {
+    const httpServer = app.listen(port, () => {
+      resolve(httpServer);
+    });
+  });
+}
+
+module.exports = { createApplication, startHttpServer };
