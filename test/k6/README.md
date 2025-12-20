@@ -2,16 +2,20 @@
 
 Este documento demonstra os conceitos de performance testing aplicados nos testes K6 desta API.
 
-## 📁 Estrutura do Projeto
+##  Estrutura do Projeto
 
 ```
 test/k6/
+├── config/
+│   └── constants.js       # Constantes centralizadas (HTTP status, thresholds, etc)
 ├── helpers/
-│   ├── authHelper.js      # Funções de autenticação
+│   ├── authHelper.js      # Funções de autenticação (register, login, loginWithRetry)
 │   ├── baseUrl.js         # Gerenciamento de URL base
-│   ├── dataGenerator.js   # Geração de dados aleatórios
+│   ├── dataGenerator.js   # Wrapper que importa do módulo compartilhado
 │   ├── carHelper.js       # Funções de gerenciamento de carros
 │   └── rentalHelper.js    # Funções de gerenciamento de aluguéis
+├── reports/
+│   └── README.md          # Documentação dos relatórios HTML
 ├── login.test.js          # Teste de registro e login
 ├── car.test.js            # Teste de listagem de carros
 ├── rental.test.js         # Teste de aluguéis com Stages
@@ -20,24 +24,35 @@ test/k6/
 
 ---
 
-## ✅ Conceitos Aplicados
+##  Conceitos Aplicados nestes testes
 
-### 1. 🎯 Thresholds
+### 1.  Thresholds
 
-**O que é:** Define critérios de sucesso/falha baseados em métricas. Se não forem atingidos, o teste falha.
+**O que é:** Thresholds define os critérios de sucesso/falha baseados em métricas. Se não forem atingidos, o teste falha.
 
 **Onde aplicado:**
-- [`login.test.js:9-11`](login.test.js#L9-L11)
-- [`car.test.js:13-16`](car.test.js#L13-L16)
+- [`login.test.js:9-14`](login.test.js#L9-L14)
+- [`car.test.js:13-19`](car.test.js#L13-L19)
+- [`rental.test.js:21-30`](rental.test.js#L21-L30)
 
 **Código:**
 ```javascript
+// Exemplo do login.test.js
+import { HTTP_STATUS, PERFORMANCE_THRESHOLDS, LOAD_CONFIG } from './config/constants.js';
+
 export const options = {
-  vus: 12,
-  duration: '20s',
+  ...LOAD_CONFIG.LIGHT, // vus: 10, duration: '1m'
   thresholds: {
-    'http_req_duration': ['p(95)<2000'], // ← THRESHOLD: p95 < 2 segundos
-    'get_cars_available_duration': ['p(95)<2000'], // ← THRESHOLD customizado
+    'http_req_duration': [`p(95)<${PERFORMANCE_THRESHOLDS.SLOW}`], // p95 < 2000ms
+  },
+};
+
+// Exemplo do car.test.js
+export const options = {
+  ...LOAD_CONFIG.MEDIUM, // vus: 50, duration: '3m'
+  thresholds: {
+    'http_req_duration': [`p(95)<${PERFORMANCE_THRESHOLDS.SLOW}`],
+    'get_cars_available_duration': [`p(95)<${PERFORMANCE_THRESHOLDS.FAST}`],
   },
 };
 ```
@@ -46,30 +61,35 @@ export const options = {
 
 ---
 
-### 2. ✔️ Checks
+### 2.  Checks
 
 **O que é:** Validações que verificam se a resposta está correta, mas não interrompem a execução do teste.
 
 **Onde aplicado:**
-- [`login.test.js:19-26`](login.test.js#L19-L26)
-- [`car.test.js:27-31`](car.test.js#L27-L31)
-- [`car.test.js:46-58`](car.test.js#L46-L58)
+- [`login.test.js:23-29`](login.test.js#L23-L29)
+- [`login.test.js:48-55`](login.test.js#L48-L55)
+- [`car.test.js:29-32`](car.test.js#L29-L32)
+- [`car.test.js:49-60`](car.test.js#L49-L60)
+- [`rental.test.js:41-44`](rental.test.js#L41-L44)
+- [`rental.test.js:80-96`](rental.test.js#L80-L96)
 
 **Código:**
 ```javascript
-// Em login.test.js
+// Em login.test.js - usando constantes
+import { HTTP_STATUS } from './config/constants.js';
+
 check(registrationResult.response, {
-  'status do registro é 201': (r) => r.status === 201,  // ← CHECK 1
-  'resposta do registro contém user': (r) => {          // ← CHECK 2
+  'status do registro é 201': (r) => r.status === HTTP_STATUS.CREATED,
+  'resposta do registro contém user': (r) => {
     const body = JSON.parse(r.body);
     return body.user !== undefined;
   }
 });
 
-// Em car.test.js
+// Em car.test.js - com tratamento de erro
 check(response, {
-  'status da listagem é 200': (r) => r.status === 200,     // ← CHECK 1
-  'resposta é um array': (r) => {                          // ← CHECK 2
+  'status da listagem é 200': (r) => r.status === HTTP_STATUS.OK,
+  'resposta é um array': (r) => {
     try {
       const body = JSON.parse(r.body);
       return Array.isArray(body);
@@ -77,7 +97,7 @@ check(response, {
       return false;
     }
   },
-  'token de autorização foi aceito': (r) => r.status !== 401  // ← CHECK 3
+  'token de autorização foi aceito': (r) => r.status !== HTTP_STATUS.UNAUTHORIZED
 });
 ```
 
@@ -85,38 +105,55 @@ check(response, {
 
 ---
 
-### 3. 🔧 Helpers
+### 3.  Helpers
 
 **O que é:** Funções reutilizáveis que encapsulam lógica comum, promovendo o princípio DRY (Don't Repeat Yourself).
 
 **Onde aplicado:**
-- [`helpers/authHelper.js`](helpers/authHelper.js) - funções de autenticação
-- [`helpers/baseUrl.js`](helpers/baseUrl.js) - gerenciamento de URL
-- [`helpers/dataGenerator.js`](helpers/dataGenerator.js) - geração de dados
+- [`helpers/authHelper.js`](helpers/authHelper.js) - `registerUser()`, `login()`, `loginWithRetry()`, `registerAndLogin()`
+- [`helpers/baseUrl.js`](helpers/baseUrl.js) - `getBaseUrl()`
+- [`helpers/dataGenerator.js`](helpers/dataGenerator.js) - wrapper que re-exporta de [`test/shared/dataGenerator.js`](../shared/dataGenerator.js)
+- [`helpers/carHelper.js`](helpers/carHelper.js) - `createCar()`, `getAvailableCars()`
+- [`helpers/rentalHelper.js`](helpers/rentalHelper.js) - `createRental()`, `getUserRentals()`
+- [`config/constants.js`](config/constants.js) - constantes centralizadas
 
 **Código:**
 ```javascript
 // helpers/authHelper.js
+import { generateUserData } from '../../shared/dataGenerator.js';
+
 export function registerUser() {
   const baseUrl = getBaseUrl();
-  const userData = {
-    name: generateRandomName(),        // ← usando outro helper
-    email: generateUniqueEmail(),      // ← usando outro helper
-    cpf: generateUniqueCPF(),          // ← usando outro helper
-    password: generateRandomPassword() // ← usando outro helper
+  const userData = generateUserData();  // ← Gera dados completos
+  
+  const response = http.post(
+    `${baseUrl}/api/users/register`,
+    JSON.stringify(userData),
+    { headers: { 'Content-Type': 'application/json' } }
+  );
+  
+  return {
+    email: userData.email,
+    password: userData.password,
+    response
   };
-  // ... faz o registro
-  return { email: userData.email, password: userData.password, response };
 }
 
-export function login(email, password) {
-  // ... faz o login
-  return { token, response };
+export function loginWithRetry(email, password, maxAttempts = 3, delayMs = 200) {
+  // ... retry logic para evitar race conditions
+  for (let i = 0; i < maxAttempts; i++) {
+    const response = http.post(`${baseUrl}/api/users/login`, ...);
+    if (response.status === 200) {
+      return { token: body.token, response };
+    }
+    if (i < maxAttempts - 1) sleep(delayMs / 1000);
+  }
+  return { token: null, response: null };
 }
 
 export function registerAndLogin() {
-  const { email, password } = registerUser();  // ← reusa registerUser
-  const { token, response } = login(email, password);  // ← reusa login
+  const { email, password } = registerUser();
+  const { token, response } = loginWithRetry(email, password);  // ← Usa retry
   return { token, email, password, response };
 }
 ```
@@ -124,107 +161,202 @@ export function registerAndLogin() {
 **Uso nos testes:**
 ```javascript
 // login.test.js
-import { registerUser, login } from './helpers/authHelper.js';
+import { registerUser, loginWithRetry } from './helpers/authHelper.js';
+import { HTTP_STATUS } from './config/constants.js';
 
-const registrationResult = registerUser();  // ← usando helper
-const loginResult = login(userEmail, userPassword);  // ← usando helper
+const registrationResult = registerUser();
+const loginResult = loginWithRetry(userEmail, userPassword);
+
+check(loginResult.response, {
+  'status do login é 200': (r) => r && r.status === HTTP_STATUS.OK
+});
 
 // car.test.js
 import { registerAndLogin } from './helpers/authHelper.js';
 
-const authResult = registerAndLogin();  // ← usando helper composto
+const authResult = registerAndLogin();
 ```
 
 **Explicação:** Helpers eliminam duplicação de código. A função `registerAndLogin()` é especialmente poderosa pois compõe dois helpers (`registerUser` + `login`) criando uma função de nível superior para cenários completos de autenticação.
 
 ---
 
-### 4. 📈 Trends
+### 4. Trends
 
 **O que é:** Métrica customizada do K6 para rastrear valores numéricos ao longo do tempo (ex: tempo de resposta).
 
-**Onde aplicado:** [`car.test.js:8`](car.test.js#L8) e [`car.test.js:44`](car.test.js#L44)
+**Onde aplicado:**
+- [`car.test.js:11`](car.test.js#L11) - definição
+- [`car.test.js:47`](car.test.js#L47) - uso
+- [`rental.test.js:18-19`](rental.test.js#L18-L19) - duas trends
 
 **Código:**
 ```javascript
+// car.test.js
 import { Trend } from 'k6/metrics';
 
 // Criando a métrica customizada
 const getCarsAvailableDuration = new Trend('get_cars_available_duration');
 
 export default function () {
-  // ... autenticação
+  const baseUrl = getBaseUrl();
+  let authToken;
+  
+  group('Autenticação', function () {
+    const authResult = registerAndLogin();
+    authToken = authResult.token;
+  });
   
   group('Listagem de Automóveis Disponíveis', function () {
     const response = http.get(`${baseUrl}/api/cars/available`, {
-      headers: { 'Authorization': `Bearer ${authToken}` }
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        'Content-Type': 'application/json'
+      }
     });
 
     // Registrando o valor na métrica customizada
     getCarsAvailableDuration.add(response.timings.duration);  // ← TREND
     
-    // ... checks
+    check(response, { /* ... checks ... */ });
   });
 }
+
+// rental.test.js - Exemplo com múltiplas Trends
+const createRentalDuration = new Trend('create_rental_duration');
+const getUserRentalsDuration = new Trend('get_user_rentals_duration');
+
+group('Operação Principal: Criar Aluguel', function () {
+  const rentalResult = createRental(authToken, carId);
+  createRentalDuration.add(rentalResult.response.timings.duration);
+});
+
+group('Consulta: Listar Meus Aluguéis', function () {
+  const rentalsResult = getUserRentals(authToken);
+  getUserRentalsDuration.add(rentalsResult.response.timings.duration);
+});
 ```
 
 **Explicação:** A Trend `get_cars_available_duration` rastreia especificamente o tempo de resposta do endpoint `/api/cars/available`, permitindo análise isolada deste endpoint crítico. No relatório final, teremos estatísticas separadas (min, max, avg, p95) apenas para este endpoint.
 
 ---
 
-### 5. 🎲 Faker
+### 5.  Faker
 
 **O que é:** Biblioteca para gerar dados realistas e aleatórios (nomes, emails, senhas, etc).
 
-**Onde aplicado:** [`helpers/dataGenerator.js:1-17`](helpers/dataGenerator.js#L1-L17)
+**Onde aplicado:**
+- [`test/shared/dataGenerator.js`](../shared/dataGenerator.js) - módulo principal compartilhado
+- [`helpers/dataGenerator.js`](helpers/dataGenerator.js) - wrapper K6 que re-exporta
 
-**Código:**
+**Código do módulo compartilhado:**
 ```javascript
-import faker from 'k6/x/faker';  // ← IMPORTANDO FAKER
+// test/shared/dataGenerator.js
+// ✅ Compatível com Node.js (Supertest) e K6 (sem dependências externas)
 
-export function generateRandomName() {
-  return faker.person.name();  // ← FAKER gerando nome
+export function generateValidCPF() {
+  // ... algoritmo de geração de CPF válido com dígitos verificadores
+  return cpfElevenDigits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 }
 
-export function generateRandomPassword() {
-  return faker.internet.password();  // ← FAKER gerando senha
-}
-
-export function generateUniqueEmail() {
+export function generateUniqueEmail(domain = 'test.com') {
   const timestamp = Date.now();
   const randomNum = Math.floor(Math.random() * 10000);
-  return `user_${timestamp}_${randomNum}@test.com`;  // ← Email único
+  return `user_${timestamp}_${randomNum}@${domain}`;
 }
 
-export function generateUniqueCPF() {
-  const timestamp = Date.now().toString();
-  const cpfNumbers = timestamp.slice(-11).padStart(11, '0');
-  return `${cpfNumbers.slice(0, 3)}.${cpfNumbers.slice(3, 6)}.${cpfNumbers.slice(6, 9)}-${cpfNumbers.slice(9, 11)}`;
+export function generateRandomName() {
+  const timestamp = Date.now();
+  return `Test User ${timestamp}`;
+}
+
+export function generateTestPassword() {
+  return 'Test@123456';
+}
+
+export function generateUserData(overrides = {}) {
+  return {
+    name: generateRandomName(),
+    email: generateUniqueEmail(),
+    cpf: generateValidCPF(),
+    password: generateTestPassword(),
+    ...overrides
+  };
+}
+
+export function generateCarData(overrides = {}) {
+  return {
+    brand: "Toyota",
+    model: "Corolla",
+    year: 2023,
+    plate: generateCarPlate(),
+    dailyRate: 150.00,
+    ...overrides
+  };
 }
 ```
 
-**Uso:**
+**Wrapper K6 (opcional - adiciona Faker):**
+```javascript
+// test/k6/helpers/dataGenerator.js
+// Re-exporta tudo do módulo compartilhado
+export {
+  generateValidCPF,
+  generateUniqueEmail,
+  generateRandomName,
+  generateTestPassword,
+  generateCarPlate,
+  generateUserData,
+  generateCarData
+} from '../../shared/dataGenerator.js';
+
+// Funções adicionais com Faker (opcional)
+import faker from 'k6/x/faker';
+
+export function generateRandomNameWithFaker() {
+  return faker.person.name();
+}
+
+export function generateRandomPasswordWithFaker() {
+  return faker.internet.password();
+}
+```
+
+**Uso nos testes:**
 ```javascript
 // helpers/authHelper.js
-import { generateRandomName, generateRandomPassword, generateUniqueEmail, generateUniqueCPF } from './dataGenerator.js';
+import { generateUserData } from '../../shared/dataGenerator.js';
 
-const userData = {
-  name: generateRandomName(),        // ← "John Doe", "Maria Silva", etc
-  email: generateUniqueEmail(),      // ← "user_1703012345_9876@test.com"
-  cpf: generateUniqueCPF(),          // ← "123.456.789-01"
-  password: generateRandomPassword() // ← "aB3$xY9z@K"
-};
+export function registerUser() {
+  const userData = generateUserData();  // Gera tudo de uma vez
+  // userData = { name, email, cpf, password }
+  // ...
+}
+
+// helpers/carHelper.js
+import { generateCarData } from '../../shared/dataGenerator.js';
+
+export function createCar(authToken) {
+  const carData = generateCarData();  // Gera dados de carro
+  // carData = { brand, model, year, plate, dailyRate }
+  // ...
+}
 ```
 
-**Explicação:** Faker gera dados realistas para simular usuários reais. Cada usuário virtual (VU) cria dados únicos, evitando conflitos de duplicação (mesmos emails/CPFs) que causariam erros 400.
+**Explicação:** O módulo compartilhado garante consistência entre testes Supertest (Node.js) e K6. Cada VU cria dados únicos baseados em timestamp, evitando conflitos de duplicação. O Faker do K6 é opcional para casos que precisem de dados mais realistas.
 
 ---
 
-### 6. 🌍 Variável de Ambiente
+### 6.  Variável de Ambiente
 
 **O que é:** Permite configurar valores externamente via linha de comando, sem modificar o código.
 
 **Onde aplicado:** [`helpers/baseUrl.js:5-7`](helpers/baseUrl.js#L5-L7)
+
+**Benefícios da centralização:**
+- Um único ponto de configuração
+- Facilita mudanças de ambiente
+- Evita hardcoding de URLs nos testes
 
 **Código:**
 ```javascript
@@ -258,49 +390,81 @@ k6 run -e BASE_URL=https://api.exemplo.com test/k6/login.test.js
 
 ---
 
-### 7. ♻️ Reaproveitamento de Resposta
+### 7.  Reaproveitamento de Resposta
 
 **O que é:** Usar dados de uma requisição anterior em requisições subsequentes.
 
 **Onde aplicado:**
-- [`login.test.js:17-33`](login.test.js#L17-L33)
-- [`car.test.js:22-32`](car.test.js#L22-L32)
+- [`login.test.js:18-41`](login.test.js#L18-L41) - captura email/password do registro
+- [`login.test.js:45-67`](login.test.js#L45-L67) - reusa para login
+- [`car.test.js:23-33`](car.test.js#L23-L33) - captura token
+- [`car.test.js:35-61`](car.test.js#L35-L61) - reusa token em GET
+- [`rental.test.js:34-50`](rental.test.js#L34-L50) - captura token
+- [`rental.test.js:52-72`](rental.test.js#L52-L72) - captura carId
+- [`rental.test.js:74-97`](rental.test.js#L74-L97) - reusa ambos
 
 **Código:**
 ```javascript
 // login.test.js
 export default function () {
-  let userEmail, userPassword;  // ← variáveis para armazenar
+  const baseUrl = getBaseUrl();
+  let userEmail, userPassword;
 
   group('Registro de Usuário', function () {
     const registrationResult = registerUser();
     
-    // Armazenando dados para reutilizar
+    check(registrationResult.response, {
+      'status do registro é 201': (r) => r.status === HTTP_STATUS.CREATED,
+      'resposta do registro contém user': (r) => {
+        const body = JSON.parse(r.body);
+        return body.user !== undefined;
+      }
+    });
+
     userEmail = registrationResult.email;      // ← CAPTURA
     userPassword = registrationResult.password; // ← CAPTURA
   });
 
+  sleep(SLEEP_TIME.SHORT_PAUSE);
+
   group('Login de Usuário', function () {
-    // Reutilizando dados do registro anterior
-    const loginResult = login(userEmail, userPassword);  // ← REUSO
+    const loginResult = loginWithRetry(userEmail, userPassword);  // ← REUSO com retry
+    
+    check(loginResult.response, {
+      'status do login é 200': (r) => r && r.status === HTTP_STATUS.OK,
+      'resposta do login contém token': (r) => {
+        if (!r) return false;
+        const body = JSON.parse(r.body);
+        return body.token !== undefined && body.token !== null;
+      }
+    });
   });
 }
 
-// car.test.js
+// rental.test.js - Exemplo mais complexo
 export default function () {
-  let authToken;  // ← variável para armazenar token
+  const baseUrl = getBaseUrl();
+  let authToken;  // ← CAPTURA 1
+  let carId;      // ← CAPTURA 2
 
-  group('Autenticação', function () {
+  group('Setup: Autenticação', function () {
     const authResult = registerAndLogin();
-    authToken = authResult.token;  // ← CAPTURA o token
+    authToken = authResult.token;
   });
 
-  group('Listagem de Automóveis Disponíveis', function () {
-    const response = http.get(`${baseUrl}/api/cars/available`, {
-      headers: {
-        'Authorization': `Bearer ${authToken}`  // ← REUSO do token
-      }
-    });
+  group('Setup: Criação de Carro', function () {
+    const carResult = createCar(authToken);  // ← USA CAPTURA 1
+    carId = carResult.car.id;  // ← CAPTURA 2
+  });
+
+  group('Operação Principal: Criar Aluguel', function () {
+    const rentalResult = createRental(authToken, carId);  // ← USA AMBOS
+  });
+
+  sleep(SLEEP_TIME.THINK_TIME);
+
+  group('Consulta: Listar Meus Aluguéis', function () {
+    const rentalsResult = getUserRentals(authToken);  // ← USA CAPTURA 1
   });
 }
 ```
@@ -309,7 +473,7 @@ export default function () {
 
 ---
 
-### 8. 🔐 Uso de Token de Autenticação
+### 8. Uso de Token de Autenticação
 
 **O que é:** Implementação de autenticação JWT Bearer Token para acessar endpoints protegidos.
 
@@ -361,7 +525,7 @@ export function login(email, password) {
 
 ---
 
-### 9. 📦 Groups
+### 9. Groups
 
 **O que é:** Organiza testes em blocos lógicos, permitindo métricas agregadas por funcionalidade.
 
@@ -447,24 +611,6 @@ export const options = {
     'checks': ['rate>0.95'],
   },
 };
-```
-
-**Visualização das Stages:**
-```
-Usuários
-   10 │         ┌─────────────────┐
-      │        ╱                   ╲
-    5 │   ┌──╱                      ╲
-      │  ╱                            ╲──┐
-    0 ├─╯                                 ╲─┐
-      └─────────────────────────────────────
-      0s  10s    30s        60s   75s    85s
-      │    │      │          │     │      │
-      │    └─ Ramp-up 1      │     │      │
-      │           └─ Ramp-up 2     │      │
-      │                  └─ Plateau│      │
-      │                        └─ Ramp-down 1
-      │                                └─ Ramp-down 2
 ```
 
 **Fluxo do teste:**
@@ -559,7 +705,7 @@ export const options = {
 
 **O que seria:** Iterar sobre múltiplos datasets externos (CSV, JSON) para testar com diferentes combinações de dados.
 
-**Por que não foi aplicado:** Não era requisito. O teste gera dados dinamicamente com Faker, que é mais eficiente para testes de carga.
+**Por que não foi aplicado:** Não deu tempo.
 
 **Como seria:**
 ```javascript
@@ -608,6 +754,45 @@ k6 run --out json=results.json test/k6/car.test.js
 
 ---
 
+## 📄 Relatórios HTML
+
+Os testes geram relatórios HTML automaticamente usando `handleSummary`:
+
+```javascript
+// Imports no topo
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
+
+// Função no final do arquivo
+export function handleSummary(data) {
+  return {
+    "test/k6/reports/login-report.html": htmlReport(data),
+    stdout: textSummary(data, { indent: " ", enableColors: true }),
+  };
+}
+```
+
+**Onde aplicado:**
+- [`login.test.js:48-53`](login.test.js#L48-L53) → `login-report.html`
+- [`car.test.js:65-70`](car.test.js#L65-L70) → `car-report.html`
+- [`rental.test.js:149-154`](rental.test.js#L149-L154) → `rental-report.html`
+
+**Como usar:**
+
+```bash
+# Executar testes (HTML gerado automaticamente)
+npm run k6:login   # → test/k6/reports/login-report.html
+npm run k6:car     # → test/k6/reports/car-report.html
+npm run k6:rental  # → test/k6/reports/rental-report.html
+
+# Visualizar
+open test/k6/reports/login-report.html
+```
+
+**Conteúdo:** Taxa de sucesso, tempos de resposta, gráficos interativos, métricas customizadas.
+
+---
+
 ## 📊 Interpretando Resultados
 
 ### Métricas Importantes
@@ -635,31 +820,103 @@ vus............................: 12
 
 ---
 
-## 📝 Resumo dos Conceitos
 
-| # | Conceito | Status | Localização |
-|---|----------|--------|-------------|
-| 1 | Thresholds | ✅ Aplicado | `login.test.js:9`, `car.test.js:13`, `rental.test.js:22` |
-| 2 | Checks | ✅ Aplicado | `login.test.js:19-33`, `car.test.js:27-58`, `rental.test.js:39-117` |
-| 3 | Helpers | ✅ Aplicado | `helpers/*.js` |
-| 4 | Trends | ✅ Aplicado | `car.test.js:8,44`, `rental.test.js:11-12,81,106` |
-| 5 | Faker | ✅ Aplicado | `helpers/dataGenerator.js:1-17` |
-| 6 | Variável de Ambiente | ✅ Aplicado | `helpers/baseUrl.js:5-7` |
-| 7 | Reaproveitamento de Resposta | ✅ Aplicado | `login.test.js:22-28`, `car.test.js:24-31`, `rental.test.js:35-71` |
-| 8 | Token de Autenticação | ✅ Aplicado | `car.test.js:24-42`, `rental.test.js:35-46` |
-| 9 | Groups | ✅ Aplicado | `login.test.js:17-33`, `car.test.js:22-60`, `rental.test.js:35-122` |
-| 10 | Stages | ✅ Aplicado | `rental.test.js:14-21` |
-| 11 | Data-Driven Testing | ❌ Não aplicado | - |
-
-**Total: 10/11 conceitos implementados** ✅
 
 ---
 
-## 🎓 Conclusão
+##  Histórico de Execução
 
-Os testes implementam as melhores práticas de K6 com foco em:
-- **Reutilização**: Helpers reduzem duplicação
-- **Manutenibilidade**: Código organizado e bem estruturado
-- **Observabilidade**: Checks, Trends e Groups fornecem métricas detalhadas
-- **Flexibilidade**: Variável de ambiente permite múltiplos ambientes
-- **Realismo**: Faker gera dados realistas, Token JWT simula autenticação real
+###  Problema Identificado e Resolvido: JWT Configuration
+
+**Data:** 20/12/2024
+
+####  Problema Inicial
+
+Durante a primeira execução dos testes K6, foi identificado um erro crítico de autenticação:
+
+```
+Status: 401
+Body: {"error":"secretOrPrivateKey must have a value"}
+```
+
+**Diagnóstico:**
+- O Servidor estava rodando e acessível mas o teste falhava ao ser executado
+- O K6 estava fazendo as requisições corretamente (Verificado através de logs)
+- A API não conseguia gerar os tokens JWT devido à falta da variável `JWT_SECRET`
+
+**Causa Raiz:**
+O arquivo `.env` não existia no projeto, e as variáveis de ambiente necessárias para a geração de tokens JWT não estavam configuradas:
+- [`src/service/userService.js:7`](src/service/userService.js#L7) - `const JWT_SECRET = process.env.JWT_SECRET;`
+- [`src/middleware/auth.js:5`](src/middleware/auth.js#L5) - `const JWT_SECRET = process.env.JWT_SECRET;`
+
+####  Solução Aplicada
+
+1. Foi Criado arquivo `.env` na raiz do projeto:
+  
+2. Foi verificado se no `src/server.js` o `dotenv` já estava sendo carregado corretamente
+
+####  Resultado Esperado Após Correção
+
+Após reiniciar o servidor com as variáveis de ambiente configuradas:
+
+**Antes (com erro):**
+```
+✗ Status is 401
+✗ Response has token
+Body: {"error":"secretOrPrivateKey must have a value"}
+```
+
+**Depois (funcionando):**
+```
+✓ Status is 200
+✓ Response has token
+Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+####  Lições Aprendidas
+
+1. **Configuração de Ambiente é Crítica**: Sempre verificar variáveis de ambiente antes de executar testes
+2. **Documentação Clara**: Arquivo `.env.example` ajuda novos desenvolvedores a configurar o projeto
+3. **K6 Funciona Perfeitamente**: O erro não estava no K6, mas na configuração do backend
+4. **Erro 401 ≠ Servidor Morto**: Um erro 401 com body JSON é um bom sinal - o servidor está vivo e respondendo
+
+####  Comandos para Reproduzir a Correção
+
+```bash
+# 1. Parar o servidor (se estiver rodando)
+# Ctrl+C no terminal do servidor
+
+# 2. Verificar se .env existe e está configurado
+cat .env
+
+# 3. Iniciar o servidor novamente
+npm start
+
+# 4. Executar os testes K6
+npm run k6:login   # Teste de autenticação
+npm run k6:car     # Teste de listagem de carros
+npm run k6:rental  # Teste de aluguéis com stages
+```
+
+####  Segurança: Boas Práticas Aplicadas
+
+-  Arquivo `.env` no `.gitignore` (não versionado)
+-  Arquivo `.env.example` versionado (sem credenciais)
+-  JWT_SECRET configurável por ambiente
+-  **Produção**: Usar secret forte gerado via `openssl rand -hex 64`
+
+---
+
+
+---
+
+## Resumo dos Resultados dos Testes
+
+### Login Test
+O teste de autenticação executou 396 iterações com 10 usuários virtuais, gerando 792 requisições totais sem nenhuma falha. Todos os 1584 checks passaram (100%), validando com sucesso o registro e login de usuários. O tempo de resposta P95 ficou em 889ms, bem abaixo do threshold de 2000ms estabelecido, demonstrando excelente performance do fluxo de autenticação.
+
+### Car Test 
+O teste de listagem de carros executou 1205 iterações com até 50 usuários virtuais simultâneos, totalizando 3615 requisições. Apesar de todos os 6025 checks terem passado (100%), 2 thresholds foram violados: o tempo de resposta geral P95 atingiu 4632ms (threshold: 2000ms) e a listagem de carros disponíveis P95 chegou a 2062ms (threshold: 500ms). Isso indica que sob carga média (50 VUs), a API apresenta degradação de performance que precisa ser otimizada.
+
+### Rental Test (2025-12-20 13:04)
+O teste de aluguéis com stages progressivos executou 195 iterações, variando de 1 a 10 usuários virtuais ao longo de 60 segundos. Foram realizadas 975 requisições com 100% de sucesso nos 1950 checks. Todos os thresholds de performance foram respeitados: criação de rental P95 em 41ms (threshold: 2000ms), listagem P95 em 365ms (threshold: 1000ms) e tempo geral P95 em 463ms (threshold: 3000ms). O teste demonstrou excelente estabilidade da API mesmo com carga progressiva.

@@ -1,26 +1,23 @@
 import http from 'k6/http';
-import { check } from 'k6';
 import { getBaseUrl } from './baseUrl.js';
+import { generateCarData } from '../../shared/dataGenerator.js';
+
+/**
+ * @typedef {{car: Object|null, response: Object}} CarResult
+ * @typedef {{cars: Array, response: Object}} CarsListResult
+ */
 
 /**
  * Cadastra um novo carro
  * @param {string} token - Token JWT de autenticação
- * @returns {Object} Objeto contendo car e response
+ * @param {Object} [overrides={}] - Dados opcionais para sobrescrever
+ * @returns {CarResult}
  */
-export function createCar(token) {
+export function createCar(token, overrides = {}) {
   const baseUrl = getBaseUrl();
   
-  // Gera placa única baseada em timestamp
-  const timestamp = Date.now();
-  const plate = `ABC${timestamp.toString().slice(-4)}`;
-  
-  const carData = {
-    brand: "Toyota",
-    model: "Corolla",
-    year: 2023,
-    plate: plate,
-    dailyRate: 150.00
-  };
+  // Usa a função compartilhada para gerar dados do carro
+  const carData = generateCarData(overrides);
 
   const response = http.post(
     `${baseUrl}/api/cars`,
@@ -32,10 +29,6 @@ export function createCar(token) {
       }
     }
   );
-
-  check(response, {
-    'carro criado com sucesso': (r) => r.status === 201
-  });
 
   let car = null;
   if (response.status === 201) {
@@ -52,7 +45,7 @@ export function createCar(token) {
 /**
  * Lista carros disponíveis
  * @param {string} token - Token JWT de autenticação
- * @returns {Object} Objeto contendo cars e response
+ * @returns {CarsListResult}
  */
 export function getAvailableCars(token) {
   const baseUrl = getBaseUrl();
@@ -66,10 +59,6 @@ export function getAvailableCars(token) {
       }
     }
   );
-
-  check(response, {
-    'listagem de carros bem-sucedida': (r) => r.status === 200
-  });
 
   let cars = [];
   if (response.status === 200) {

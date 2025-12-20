@@ -1,10 +1,18 @@
 import { group, check, sleep } from 'k6';
 import http from 'k6/http';
 import { Trend } from 'k6/metrics';
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
 import { getBaseUrl } from './helpers/baseUrl.js';
 import { registerAndLogin } from './helpers/authHelper.js';
 import { createCar, getAvailableCars } from './helpers/carHelper.js';
 import { createRental, getUserRentals } from './helpers/rentalHelper.js';
+import {
+  HTTP_STATUS,
+  PERFORMANCE_THRESHOLDS,
+  STAGES_CONFIG,
+  SLEEP_TIME
+} from './config/constants.js';
 
 // Métrica customizada para monitorar o tempo de resposta do POST /rentals
 const createRentalDuration = new Trend('create_rental_duration');
@@ -12,17 +20,11 @@ const getUserRentalsDuration = new Trend('get_user_rentals_duration');
 
 export const options = {
   // STAGES: Simula carga progressiva (ramp-up, plateau, ramp-down)
-  stages: [
-    { duration: '10s', target: 5 },   // Ramp-up: 0 → 5 usuários em 10s
-    { duration: '20s', target: 10 },  // Ramp-up: 5 → 10 usuários em 20s
-    { duration: '30s', target: 10 },  // Plateau: mantém 10 usuários por 30s
-    { duration: '15s', target: 3 },   // Ramp-down: 10 → 3 usuários em 15s
-    { duration: '10s', target: 0 }    // Ramp-down: 3 → 0 usuários em 10s
-  ],
+  stages: STAGES_CONFIG.LIGHT,
   thresholds: {
-    'http_req_duration': ['p(95)<3000'], // p95 < 3s (mais tolerante pois há mais operações)
-    'create_rental_duration': ['p(95)<2000'], // p95 para criar rental < 2s
-    'get_user_rentals_duration': ['p(95)<1500'], // p95 para listar rentals < 1.5s
+    'http_req_duration': [`p(95)<${PERFORMANCE_THRESHOLDS.VERY_SLOW}`],
+    'create_rental_duration': [`p(95)<${PERFORMANCE_THRESHOLDS.SLOW}`],
+    'get_user_rentals_duration': [`p(95)<${PERFORMANCE_THRESHOLDS.NORMAL}`],
     'checks': ['rate>0.95'], // 95% dos checks devem passar
   },
 };
@@ -37,7 +39,7 @@ export default function () {
     authToken = authResult.token;
     
     check(authResult.response, {
-      'autenticação bem-sucedida': (r) => r.status === 200,
+      'autenticação bem-sucedida': (r) => r.status === HTTP_STATUS.OK,
       'token JWT recebido': () => authToken !== null && authToken !== undefined
     });
 
@@ -51,9 +53,9 @@ export default function () {
     const carResult = createCar(authToken);
     
     check(carResult.response, {
-      'carro criado com sucesso': (r) => r.status === 201,
+      'carro criado com sucesso': (r) => r.status === HTTP_STATUS.CREATED,
       'resposta contém dados do carro': (r) => {
-        if (r.status === 201) {
+        if (r.status === HTTP_STATUS.CREATED) {
           const body = JSON.parse(r.body);
           return body.car !== undefined && body.car.id !== undefined;
         }
@@ -76,16 +78,16 @@ export default function () {
     createRentalDuration.add(rentalResult.response.timings.duration);
     
     check(rentalResult.response, {
-      'rental criado com sucesso': (r) => r.status === 201,
+      'rental criado com sucesso': (r) => r.status === HTTP_STATUS.CREATED,
       'resposta contém dados do rental': (r) => {
-        if (r.status === 201) {
+        if (r.status === HTTP_STATUS.CREATED) {
           const body = JSON.parse(r.body);
           return body.rental !== undefined && body.rental.id !== undefined;
         }
         return false;
       },
       'rental possui carId correto': (r) => {
-        if (r.status === 201) {
+        if (r.status === HTTP_STATUS.CREATED) {
           const body = JSON.parse(r.body);
           return body.rental.carId === carId;
         }
@@ -95,7 +97,7 @@ export default function () {
   });
 
   // Pequena pausa para simular comportamento real de usuário
-  sleep(1);
+  sleep(SLEEP_TIME.THINK_TIME);
 
   group('Consulta: Listar Meus Aluguéis', function () {
     const rentalsResult = getUserRentals(authToken);
@@ -104,16 +106,16 @@ export default function () {
     getUserRentalsDuration.add(rentalsResult.response.timings.duration);
     
     check(rentalsResult.response, {
-      'listagem de rentals bem-sucedida': (r) => r.status === 200,
+      'listagem de rentals bem-sucedida': (r) => r.status === HTTP_STATUS.OK,
       'resposta é um array': (r) => {
-        if (r.status === 200) {
+        if (r.status === HTTP_STATUS.OK) {
           const body = JSON.parse(r.body);
           return Array.isArray(body);
         }
         return false;
       },
       'usuário possui pelo menos 1 rental': (r) => {
-        if (r.status === 200) {
+        if (r.status === HTTP_STATUS.OK) {
           const body = JSON.parse(r.body);
           return Array.isArray(body) && body.length > 0;
         }
@@ -123,7 +125,7 @@ export default function () {
   });
 
   // Pequena pausa final
-  sleep(0.5);
+  sleep(SLEEP_TIME.SHORT_PAUSE);
 }
 
 // Função executada uma vez no início do teste (antes dos stages)
@@ -141,4 +143,12 @@ export function setup() {
 // Função executada uma vez no final do teste (depois dos stages)
 export function teardown(data) {
   console.log('✅ Teste de Rental com STAGES finalizado');
+}
+
+// Função para gerar relatório HTML automaticamente após a execução
+export function handleSummary(data) {
+  return {
+    "test/k6/reports/rental-report.html": htmlReport(data),
+    stdout: textSummary(data, { indent: " ", enableColors: true }),
+  };
 }
