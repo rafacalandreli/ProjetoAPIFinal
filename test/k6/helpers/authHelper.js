@@ -98,6 +98,17 @@ export function loginWithRetry(email, password, maxAttempts = 3, delayMs = 200) 
     if (i < maxAttempts - 1) {
       sleep(delayMs / 1000);
     }
+
+    // Se a resposta existe, mas o status é 0 (N/A)
+    if (response && response.status === 0) {
+        console.error(`❌ ERRO DE REDE/CONEXÃO!`);
+        console.error(`Erro K6: ${response.error}`); // <--- VAI DIZER O MOTIVO EXATO
+        console.error(`Error Code: ${response.error_code}`);
+    } else if (response) {
+        // Erro normal da API (400, 401, 500)
+        console.error(`❌ FALHA NO LOGIN (Status: ${response.status})`);
+        console.error(`Body: ${response.body}`);
+    }
   }
 
   // Se chegou aqui, todas as tentativas falharam
@@ -109,7 +120,7 @@ export function loginWithRetry(email, password, maxAttempts = 3, delayMs = 200) 
 }
 
 /**
- * Registra um usuário e faz login automaticamente com retry logic
+ * Registra e faz login
  * @returns {AuthResult}
  */
 export function registerAndLogin() {
