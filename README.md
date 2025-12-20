@@ -40,7 +40,7 @@ Esta é uma API RESTful para gerenciar uma locadora de veículos, construída co
    ```bash
    npm install
    ```
-3. Crie e atualize com suas credencias o arquivo .env baseado no .env-template.
+3. Crie e atualize com suas credencias o arquivo .env baseado no .env.example
 
  ### Execução
 
