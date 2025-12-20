@@ -12,6 +12,9 @@ test/k6/
 │   ├── dataGenerator.js   # Geração de dados aleatórios
 │   ├── carHelper.js       # Funções de gerenciamento de carros
 │   └── rentalHelper.js    # Funções de gerenciamento de aluguéis
+│   └── dataGenerator.js   # Geração de dados aleatórios
+├── config/
+│   ├── constant.js        # Aquivo de constantes do testes
 ├── login.test.js          # Teste de registro e login
 ├── car.test.js            # Teste de listagem de carros
 ├── rental.test.js         # Teste de aluguéis com Stages
@@ -20,11 +23,11 @@ test/k6/
 
 ---
 
-## ✅ Conceitos Aplicados
+## ✅ Conceitos Aplicados nestes testes
 
 ### 1. 🎯 Thresholds
 
-**O que é:** Define critérios de sucesso/falha baseados em métricas. Se não forem atingidos, o teste falha.
+**O que é:** Thresholds define os critérios de sucesso/falha baseados em métricas. Se não forem atingidos, o teste falha.
 
 **Onde aplicado:**
 - [`login.test.js:9-11`](login.test.js#L9-L11)
