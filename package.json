@@ -8,7 +8,11 @@
     "test-controller": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/controller/**/*.test.js' --timeout 10000",
     "test-graphql": "node -r dotenv/config node_modules/mocha/bin/mocha 'test/graphql/**/*.test.js' --timeout 10000",
     "test-parallel": "concurrently --kill-others \"npm run start\" \"sleep 5 && node -r dotenv/config node_modules/mocha/bin/mocha test/external/user.test.js --timeout 10000\" \"sleep 5 && node -r dotenv/config node_modules/mocha/bin/mocha test/external/car.test.js --timeout 10000\" \"sleep 5 && node -r dotenv/config node_modules/mocha/bin/mocha test/external/rental.test.js --timeout 10000\" \"sleep 5 && node -r dotenv/config node_modules/mocha/bin/mocha test/graphql/graphql.test.js --timeout 10000\"",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "k6:login": "k6 run test/k6/login.test.js",
+    "k6:car": "k6 run test/k6/car.test.js",
+    "k6:rental": "k6 run test/k6/rental.test.js",
+    "k6:all": "npm run k6:login && npm run k6:car && npm run k6:rental"
   },
   "keywords": [],
   "author": "",

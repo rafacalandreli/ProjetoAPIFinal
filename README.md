@@ -83,3 +83,41 @@ Para executar os testes, utilize os seguintes comandos:
   ```bash
   npm run test-parallel
   ```
+
+## Testes de Performance (K6)
+
+A API inclui testes de performance automatizados usando [K6](https://k6.io/), uma ferramenta moderna de teste de carga e performance.
+
+### Executar Testes K6
+
+```bash
+# Teste de Login (registro e autenticação)
+npm run k6:login
+
+# Teste de Carros (listagem com autenticação)
+npm run k6:car
+
+# Teste de Rentals (com Stages - carga progressiva)
+npm run k6:rental
+
+# Executar todos os testes K6
+npm run k6:all
+```
+
+### Relatórios HTML
+
+Os testes K6 geram automaticamente relatórios HTML interativos em `test/k6/reports/`:
+
+- `login-report.html` - Relatório do teste de login
+- `car-report.html` - Relatório do teste de carros
+- `rental-report.html` - Relatório do teste de rentals
+
+Para visualizar:
+```bash
+open test/k6/reports/login-report.html
+```
+
+### Documentação Completa
+
+Para mais detalhes sobre os testes K6, incluindo conceitos aplicados (Thresholds, Checks, Trends, Stages, etc.), consulte:
+📄 **[Documentação Completa dos Testes K6](test/k6/README.md)**

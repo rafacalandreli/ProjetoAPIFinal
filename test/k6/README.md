@@ -608,6 +608,45 @@ k6 run --out json=results.json test/k6/car.test.js
 
 ---
 
+## 📄 Relatórios HTML
+
+Os testes geram relatórios HTML automaticamente usando `handleSummary`:
+
+```javascript
+// Imports no topo
+import { htmlReport } from "https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js";
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
+
+// Função no final do arquivo
+export function handleSummary(data) {
+  return {
+    "test/k6/reports/login-report.html": htmlReport(data),
+    stdout: textSummary(data, { indent: " ", enableColors: true }),
+  };
+}
+```
+
+**Onde aplicado:**
+- [`login.test.js:48-53`](login.test.js#L48-L53) → `login-report.html`
+- [`car.test.js:65-70`](car.test.js#L65-L70) → `car-report.html`
+- [`rental.test.js:149-154`](rental.test.js#L149-L154) → `rental-report.html`
+
+**Como usar:**
+
+```bash
+# Executar testes (HTML gerado automaticamente)
+npm run k6:login   # → test/k6/reports/login-report.html
+npm run k6:car     # → test/k6/reports/car-report.html
+npm run k6:rental  # → test/k6/reports/rental-report.html
+
+# Visualizar
+open test/k6/reports/login-report.html
+```
+
+**Conteúdo:** Taxa de sucesso, tempos de resposta, gráficos interativos, métricas customizadas.
+
+---
+
 ## 📊 Interpretando Resultados
 
 ### Métricas Importantes
