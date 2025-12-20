@@ -1,8 +1,9 @@
 # 📊 Testes de Performance K6 - API Locadora de Veículos
-
-Este documento demonstra os conceitos de performance testing aplicados nos testes K6 desta API.
+Testes de Performance realizados na API Locadora de Veículos como parte do Trabalho de Conclusão da Disciplina de Automação de Testes de Performance.
 
 ##  Estrutura do Projeto
+
+Busquei estruturar o projeto de uma forma que fosse fácil de manter e de reutilizar estruturas comuns a outros tipos de testes. (Temos testes usando o super-test que compartilham um dataGenerator com o K6 'shared/dataGenerator.js').
 
 ```
 test/k6/
@@ -28,7 +29,7 @@ test/k6/
 
 ### 1.  Thresholds
 
-**O que é:** Thresholds define os critérios de sucesso/falha baseados em métricas. Se não forem atingidos, o teste falha.
+**O que é:** Thresholds define os critérios de sucesso/falha baseados em métricas. Se não forem atingidos, o teste deve falhar.
 
 **Onde aplicado:**
 - [`login.test.js:9-14`](login.test.js#L9-L14)
@@ -57,13 +58,13 @@ export const options = {
 };
 ```
 
-**Explicação:** Se 95% das requisições demorarem mais de 2 segundos, o teste é considerado FALHO. Isso garante que a API mantenha performance aceitável mesmo sob carga.
+**Explicação:** Se 95% das requisições demorarem mais de 2 segundos, o teste deve ser considerado como FALHO. Isso garante que a API mantenha performance aceitável mesmo sob carga.
 
 ---
 
 ### 2.  Checks
 
-**O que é:** Validações que verificam se a resposta está correta, mas não interrompem a execução do teste.
+**O que é:** São as validações que verificam se a resposta retornada pela API está correta, mas não interrompem a execução do teste.
 
 **Onde aplicado:**
 - [`login.test.js:23-29`](login.test.js#L23-L29)
@@ -101,13 +102,13 @@ check(response, {
 });
 ```
 
-**Explicação:** Cada check registra pass/fail no relatório final. Diferente de assertions, checks não param o teste se falharem, permitindo coletar mais dados sobre o comportamento sob carga.
+**Explicação:** Cada check usado nos testes registrou se os mesmos passaram ou falharam no relatório final. Diferente de assertions, checks não param o teste se falharem, permitindo coletar mais dados sobre o comportamento sob carga.
 
 ---
 
 ### 3.  Helpers
 
-**O que é:** Funções reutilizáveis que encapsulam lógica comum, promovendo o princípio DRY (Don't Repeat Yourself).
+**O que é:** Encapsulam a lógica de negócio (ex: authHelper.js gerencia o fluxo de token e retry logic). São usadas para organizar o código e tornar os testes mais faceis de manter e evoluir.
 
 **Onde aplicado:**
 - [`helpers/authHelper.js`](helpers/authHelper.js) - `registerUser()`, `login()`, `loginWithRetry()`, `registerAndLogin()`
@@ -177,13 +178,13 @@ import { registerAndLogin } from './helpers/authHelper.js';
 const authResult = registerAndLogin();
 ```
 
-**Explicação:** Helpers eliminam duplicação de código. A função `registerAndLogin()` é especialmente poderosa pois compõe dois helpers (`registerUser` + `login`) criando uma função de nível superior para cenários completos de autenticação.
+**Explicação:** Helpers eliminam duplicação de código. 
 
 ---
 
 ### 4. Trends
 
-**O que é:** Métrica customizada do K6 para rastrear valores numéricos ao longo do tempo (ex: tempo de resposta).
+**O que é:** Nada mais é que uma métrica customizada do K6 para rastrear os valores numéricos ao longo do tempo (ex: tempo de resposta).
 
 **Onde aplicado:**
 - [`car.test.js:11`](car.test.js#L11) - definição
@@ -237,13 +238,11 @@ group('Consulta: Listar Meus Aluguéis', function () {
 });
 ```
 
-**Explicação:** A Trend `get_cars_available_duration` rastreia especificamente o tempo de resposta do endpoint `/api/cars/available`, permitindo análise isolada deste endpoint crítico. No relatório final, teremos estatísticas separadas (min, max, avg, p95) apenas para este endpoint.
-
 ---
 
 ### 5.  Faker
 
-**O que é:** Biblioteca para gerar dados realistas e aleatórios (nomes, emails, senhas, etc).
+**O que é:** É uma das bibliotecas mais usadas para gerar dados realistas e aleatórios (nomes, emails, senhas, etc).
 
 **Onde aplicado:**
 - [`test/shared/dataGenerator.js`](../shared/dataGenerator.js) - módulo principal compartilhado
@@ -343,7 +342,7 @@ export function createCar(authToken) {
 }
 ```
 
-**Explicação:** O módulo compartilhado garante consistência entre testes Supertest (Node.js) e K6. Cada VU cria dados únicos baseados em timestamp, evitando conflitos de duplicação. O Faker do K6 é opcional para casos que precisem de dados mais realistas.
+**Explicação:** O módulo compartilhado garante consistência entre testes Supertest (Node.js) e K6. Cada VU cria dados únicos baseados em timestamp, evitando conflitos de duplicação.
 
 ---
 
@@ -469,7 +468,7 @@ export default function () {
 }
 ```
 
-**Explicação:** Simula fluxo real de usuário: registrar → fazer login com mesmas credenciais → usar token em requisições autenticadas. Evita criar dados desnecessários e testa a integração entre endpoints.
+**Explicação:** Uma boa forma de reaproveitamente de resposta, é quando simulamos o fluxo real de usuário: registrar-se na aplicação → fazer login na mesma → usar um token em requisições autenticadas. Evita criar dados desnecessários e testa a integração entre endpoints.
 
 ---
 
@@ -527,7 +526,7 @@ export function login(email, password) {
 
 ### 9. Groups
 
-**O que é:** Organiza testes em blocos lógicos, permitindo métricas agregadas por funcionalidade.
+**O que é:** Organiza os testes em blocos lógicos, permitindo métricas agregadas por funcionalidade.
 
 **Onde aplicado:**
 - [`login.test.js:17-33`](login.test.js#L17-L33)
@@ -586,9 +585,9 @@ export default function () {
 
 ---
 
-### 10. 🎭 Stages
+### 10. Stages
 
-**O que é:** Configura carga progressiva ao longo do tempo, simulando ramp-up (crescimento gradual), plateau (carga estável) e ramp-down (redução gradual) de usuários.
+**O que é:** Configura carga progressiva ao longo do tempo, simulando o ramp-up (crescimento gradual), plateau (carga estável) e ramp-down (redução gradual) de usuários, tornando os testes criados mais parecidos com os cenários que acontecem no nosso do dia a dia.
 
 **Onde aplicado:** [`rental.test.js:14-21`](rental.test.js#L14-L21)
 
@@ -666,39 +665,6 @@ export function teardown(data) {
 }
 ```
 
-**Por que usar Stages?**
-
-1. **Realismo**: Simula crescimento orgânico de usuários (não todos de uma vez)
-2. **Estabilização**: Permite que a API se estabilize durante o ramp-up
-3. **Identificação de limites**: Descobre em qual nível de carga a performance degrada
-4. **Testes de recuperação**: Ramp-down verifica se a API se recupera após pico de carga
-5. **Evita sobrecarga instantânea**: Mais seguro para ambientes de produção
-
-**Diferença entre VUs fixos vs Stages:**
-
-```javascript
-// VUs FIXOS (login.test.js, car.test.js)
-// Todos os 12 usuários começam simultaneamente
-export const options = {
-  vus: 12,
-  duration: '20s'
-};
-
-// STAGES (rental.test.js)
-// Usuários crescem/diminuem gradualmente
-export const options = {
-  stages: [
-    { duration: '10s', target: 5 },
-    { duration: '20s', target: 10 },
-    // ...
-  ]
-};
-```
-
-**Explicação:** Stages é ideal para testes de stress e spike testing, onde queremos observar como a API se comporta com carga crescente. O teste de rental usa este conceito para simular um cenário mais realista de crescimento de usuários ao longo do tempo, permitindo identificar o ponto exato onde a performance começa a degradar.
-
----
-
 ## ❌ Conceitos NÃO Aplicados
 
 ### 11. 📊 Data-Driven Testing
@@ -724,11 +690,11 @@ export default function () {
 
 ---
 
-## 🚀 Como Executar
+##  Como Executar os testes
 
 ### Pré-requisitos
-- K6 instalado
-- API rodando (padrão: `http://localhost:3000`)
+- K6 instalado 
+- API rodando (Por padrão ela roda em : `http://localhost:3000`)
 
 ### Comandos
 
@@ -736,27 +702,27 @@ export default function () {
 # Iniciar a API
 npm start
 
-# Executar teste de login
+# Executa apenas o teste referentes a Api de login
 k6 run test/k6/login.test.js
 
-# Executar teste de carros
+# Executa apenas o teste referentes a Api de carros
 k6 run test/k6/car.test.js
 
-# Executar teste de rentals (com Stages)
+# Executa apenas o teste referentes a Api de rentals (com Stages)
 k6 run test/k6/rental.test.js
 
-# Executar com URL customizada
+# Executa usando uma URL customizada
 k6 run -e BASE_URL=https://api.staging.com test/k6/login.test.js
 
-# Executar com mais detalhes
+# Executa com mais detalhes
 k6 run --out json=results.json test/k6/car.test.js
 ```
 
 ---
 
-## 📄 Relatórios HTML
+## Relatórios HTML
 
-Os testes geram relatórios HTML automaticamente usando `handleSummary`:
+Os testes geram relatórios HTML automaticamente usando `handleSummary` após cada execução:
 
 ```javascript
 // Imports no topo
@@ -793,7 +759,7 @@ open test/k6/reports/login-report.html
 
 ---
 
-## 📊 Interpretando Resultados
+## Interpretando Resultados das execuções
 
 ### Métricas Importantes
 
@@ -828,32 +794,29 @@ vus............................: 12
 
 ###  Problema Identificado e Resolvido: JWT Configuration
 
-**Data:** 20/12/2024
-
 ####  Problema Inicial
 
-Durante a primeira execução dos testes K6, foi identificado um erro crítico de autenticação:
+Durante a primeira execução dos testes utilizando o K6, identifiquei um erro crítico de autenticação:
 
 ```
 Status: 401
 Body: {"error":"secretOrPrivateKey must have a value"}
 ```
 
-**Diagnóstico:**
-- O Servidor estava rodando e acessível mas o teste falhava ao ser executado
+- O Servidor estava rodando normalmente mas o teste falhava ao ser executado
 - O K6 estava fazendo as requisições corretamente (Verificado através de logs)
 - A API não conseguia gerar os tokens JWT devido à falta da variável `JWT_SECRET`
 
 **Causa Raiz:**
-O arquivo `.env` não existia no projeto, e as variáveis de ambiente necessárias para a geração de tokens JWT não estavam configuradas:
+Depois de muita análise e pesquisa, notei que o arquivo `.env` não existia no projeto, e as variáveis de ambiente necessárias para a geração de tokens JWT não estavam configuradas, causado com isso o problema de autenticação:
 - [`src/service/userService.js:7`](src/service/userService.js#L7) - `const JWT_SECRET = process.env.JWT_SECRET;`
 - [`src/middleware/auth.js:5`](src/middleware/auth.js#L5) - `const JWT_SECRET = process.env.JWT_SECRET;`
 
 ####  Solução Aplicada
 
-1. Foi Criado arquivo `.env` na raiz do projeto:
+1. Criei um arquivo `.env` na raiz do projeto
   
-2. Foi verificado se no `src/server.js` o `dotenv` já estava sendo carregado corretamente
+2. Verifiquei se no `src/server.js` o `dotenv` já estava sendo carregado corretamente
 
 ####  Resultado Esperado Após Correção
 
@@ -875,9 +838,9 @@ Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ####  Lições Aprendidas
 
-1. **Configuração de Ambiente é Crítica**: Sempre verificar variáveis de ambiente antes de executar testes
-2. **Documentação Clara**: Arquivo `.env.example` ajuda novos desenvolvedores a configurar o projeto
-3. **K6 Funciona Perfeitamente**: O erro não estava no K6, mas na configuração do backend
+1. **Configuração de Ambiente é Crítica**: Sempre verificar variáveis de ambiente antes de executar testes!
+2. **Documentação Clara**: A api deve ter um arquivo `.env.example` para ajuda novos desenvolvedores a configurar o projeto.
+3. **K6 Funciona Perfeitamente**: O erro não estava no K6, mas na configuração do backend.
 4. **Erro 401 ≠ Servidor Morto**: Um erro 401 com body JSON é um bom sinal - o servidor está vivo e respondendo
 
 ####  Comandos para Reproduzir a Correção
